@@ -1,0 +1,100 @@
+version: '3'
+
+services:
+  # MariaDB Galera Cluster
+  mariadb1:
+    image: mariadb:10.5
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: booking_db
+      MYSQL_USER: bookinguser
+      MYSQL_PASSWORD: bookingpass
+    command: >
+      --wsrep-new-cluster
+      --wsrep_provider=/usr/lib/galera/libgalera_smm.so
+      --wsrep_cluster_address=gcomm://mariadb1,mariadb2
+      --wsrep_cluster_name=galera_cluster
+      --wsrep_node_address=mariadb1
+      --wsrep_node_name=mariadb1
+      --wsrep_sst_method=rsync
+      --bind-address=0.0.0.0
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - app-network
+    ports:
+      - "3306:3306"
+
+  mariadb2:
+    image: mariadb:10.5
+    depends_on:
+      - mariadb1
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: booking_db
+      MYSQL_USER: bookinguser
+      MYSQL_PASSWORD: bookingpass
+    command: >
+      --wsrep_provider=/usr/lib/galera/libgalera_smm.so
+      --wsrep_cluster_address=gcomm://mariadb1,mariadb2
+      --wsrep_cluster_name=galera_cluster
+      --wsrep_node_address=mariadb2
+      --wsrep_node_name=mariadb2
+      --wsrep_sst_method=rsync
+      --bind-address=0.0.0.0
+    networks:
+      - app-network
+    ports:
+      - "3307:3306"
+    restart: on-failure
+
+  # Microservices
+  event-service:
+    build: ./event-service
+    depends_on:
+      - mariadb1
+      - mariadb2
+    environment:
+      DB_HOST: mariadb1
+      DB_PORT: 3306
+      DB_USER: bookinguser
+      DB_PASSWORD: bookingpass
+      DB_NAME: booking_db
+    networks:
+      - app-network
+    ports:
+      - "3001:3000"
+
+  booking-service:
+    build: ./booking-service
+    depends_on:
+      - mariadb1
+      - mariadb2
+    environment:
+      DB_HOST: mariadb1
+      DB_PORT: 3306
+      DB_USER: bookinguser
+      DB_PASSWORD: bookingpass
+      DB_NAME: booking_db
+    networks:
+      - app-network
+    ports:
+      - "3002:3000"
+
+  # API Gateway
+  api-gateway:
+    build: ./api-gateway
+    depends_on:
+      - event-service
+      - booking-service
+    environment:
+      EVENT_SERVICE_URL: http://event-service:3000
+      BOOKING_SERVICE_URL: http://booking-service:3000
+    networks:
+      - app-network
+    ports:
+      - "8080:3000"
+
+networks:
+  app-network:
+    driver: bridge
