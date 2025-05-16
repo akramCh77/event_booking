@@ -18,7 +18,8 @@ my-app
 │   ├── Dockerfile
 │   ├── package.json
 │   └── server.js
-├── init.sql
+├── db
+│   ├── init.sql
 ├── docker-compose.yml
 └── README.md
 ```
