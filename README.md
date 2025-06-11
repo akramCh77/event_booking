@@ -1,4 +1,4 @@
-# My App
+# My App (Travaille académique)
 
 This project consists of three microservices (service1, service2, and service3) that are containerized using Docker. Each service has its own Dockerfile, package.json, and server.js file. The project also includes an SQL initialization script and a Docker Compose file to manage the services.
 
